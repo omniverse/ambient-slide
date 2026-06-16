@@ -1,0 +1,49 @@
+import { useRef } from "react";
+import { Slider, type SliderHandle } from "./slider";
+
+export function Main() {
+  const audioRef1 = useRef<HTMLAudioElement>(null);
+  const audioRef2 = useRef<HTMLAudioElement>(null);
+  const audioRef3 = useRef<HTMLAudioElement>(null);
+  const audioRef4 = useRef<HTMLAudioElement>(null);
+  const sliderRef1 = useRef<SliderHandle>(null);
+  const sliderRef2 = useRef<SliderHandle>(null);
+  const sliderRef3 = useRef<SliderHandle>(null);
+  const sliderRef4 = useRef<SliderHandle>(null);
+
+  const resetAllLoops = () => {
+    sliderRef1.current?.resetToLoopStart();
+    sliderRef2.current?.resetToLoopStart();
+    sliderRef3.current?.resetToLoopStart();
+    sliderRef4.current?.resetToLoopStart();
+  };
+
+  return (
+    <main className="welcome-main">
+      <div className="welcome-content">
+        <header className="welcome-header">
+          <div className="welcome-logo">Ambient Slide</div>
+        </header>
+        <div className="welcome-section">
+          <audio ref={audioRef1} src="/earle/arp.m4a" preload="metadata" loop />
+          <audio ref={audioRef2} src="/earle/drums.m4a" preload="metadata" loop />
+          <audio ref={audioRef3} src="/earle/mbira.m4a" preload="metadata" loop />
+          <audio ref={audioRef4} src="/earle/pad.m4a" preload="metadata" loop />
+          <Slider ref={sliderRef1} audioRef={audioRef1} />
+          <Slider ref={sliderRef2} audioRef={audioRef2} />
+          <Slider ref={sliderRef3} audioRef={audioRef3} />
+          <Slider ref={sliderRef4} audioRef={audioRef4} />
+        </div>
+        <footer className="welcome-footer">
+          <button
+            type="button"
+            className="welcome-reset-loops"
+            onClick={resetAllLoops}
+          >
+            Resync
+          </button>
+        </footer>
+      </div>
+    </main>
+  );
+}
