@@ -1,6 +1,7 @@
 # Ambient Slide
 
-An interactive ambient audio mixer built with [Next.js](https://nextjs.org/).
+An interactive ambient audio 4-track tape machine simulation.
+[Demo](https://ambient-slide.vercel.app/)
 
 ## Getting Started
 
