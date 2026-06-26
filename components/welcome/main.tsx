@@ -27,10 +27,10 @@ export function Main() {
           <div className="welcome-logo">Ambient Slide</div>
         </header>
         <div className="welcome-section">
-          <audio ref={audioRef1} src="/earle/arp.m4a" preload="metadata" loop />
-          <audio ref={audioRef2} src="/earle/drums.m4a" preload="metadata" loop />
-          <audio ref={audioRef3} src="/earle/mbira.m4a" preload="metadata" loop />
-          <audio ref={audioRef4} src="/earle/pad.m4a" preload="metadata" loop />
+          <audio ref={audioRef1} src="/seaport/BASS 4.mp3" preload="metadata" loop />
+          <audio ref={audioRef2} src="/seaport/MELO 5.mp3" preload="metadata" loop />
+          <audio ref={audioRef3} src="/seaport/TENOR 5.mp3" preload="metadata" loop />
+          <audio ref={audioRef4} src="/seaport/TWIN 6.mp3" preload="metadata" loop />
           <Slider ref={sliderRef1} audioRef={audioRef1} />
           <Slider ref={sliderRef2} audioRef={audioRef2} />
           <Slider ref={sliderRef3} audioRef={audioRef3} />
