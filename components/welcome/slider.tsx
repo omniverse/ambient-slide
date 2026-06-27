@@ -975,7 +975,7 @@ export const Slider = forwardRef<SliderHandle, SliderProps>(function Slider(
           format={formatPlaybackRate}
         />
         <MixControl
-          label="DELAY"
+          label="ECHO"
           value={wet}
           min={0}
           max={1}
