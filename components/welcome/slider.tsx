@@ -9,13 +9,15 @@ import {
 import { MixControl } from "./mix-control";
 
 const WAVEFORM_SAMPLES = 512;
+/** Seconds of audio visible across one viewport width at 1× playback. */
+const REFERENCE_LOOP_SECONDS = 10;
 
 const BASE_SPEED_PX_S = 0;
 const MIN_SPEED_PX_S = -600;
 const MAX_SPEED_PX_S = 600;
 const RETURN_RATE = 0;
 const MIN_PLAY_SPEED_PX_S = 8;
-const PLAYBACK_RATES = [.25, .5, 1, 1.5, 2, 3, 4, 5, 8] as const;
+const PLAYBACK_RATES = [.25, .5, 1, 1.5, 2, 3, 4] as const;
 /** Seconds behind the leader playhead (tape echo taps). */
 const TAPE_DELAY_SECONDS = [0.2, 0.4, 0.65] as const;
 const ALL_TAPE_DELAYS = [0, ...TAPE_DELAY_SECONDS] as const;
@@ -48,26 +50,50 @@ function wrapOffset(value: number, loop: number) {
   return ((value % loop) + loop) % loop;
 }
 
-function offsetToTime(offset: number, loopWidth: number, duration: number) {
-  if (loopWidth <= 0 || duration <= 0) return 0;
+function loopWidthForDuration(viewportWidth: number, duration: number) {
+  if (viewportWidth <= 0) return 0;
+  if (duration <= 0) return viewportWidth;
+  return viewportWidth * (duration / REFERENCE_LOOP_SECONDS);
+}
+
+function pixelsPerSecondAt1x(viewportWidth: number, duration: number) {
+  if (viewportWidth <= 0 || duration <= 0) return 0;
+  return viewportWidth / REFERENCE_LOOP_SECONDS;
+}
+
+function offsetToTime(
+  offset: number,
+  loopWidth: number,
+  duration: number,
+  viewportWidth: number,
+) {
+  if (loopWidth <= 0 || duration <= 0 || viewportWidth <= 0) return 0;
   return (
-    (wrapOffset(offset + loopWidth / 2, loopWidth) / loopWidth) * duration
+    (wrapOffset(offset + viewportWidth / 2, loopWidth) / loopWidth) * duration
   );
 }
 
-function timeToOffset(time: number, loopWidth: number, duration: number) {
-  if (loopWidth <= 0 || duration <= 0) return 0;
-  return wrapOffset((time / duration) * loopWidth - loopWidth / 2, loopWidth);
+function timeToOffset(
+  time: number,
+  loopWidth: number,
+  duration: number,
+  viewportWidth: number,
+) {
+  if (loopWidth <= 0 || duration <= 0 || viewportWidth <= 0) return 0;
+  return wrapOffset(
+    (time / duration) * loopWidth - viewportWidth / 2,
+    loopWidth,
+  );
 }
 
 function speedToPlaybackRate(
   speedPxS: number,
-  loopWidth: number,
+  viewportWidth: number,
   duration: number,
 ) {
-  if (loopWidth <= 0 || duration <= 0) return 1;
-  const pixelsPerSecondAt1x = loopWidth / duration;
-  return Math.abs(speedPxS) / pixelsPerSecondAt1x;
+  const pxPerSecond = pixelsPerSecondAt1x(viewportWidth, duration);
+  if (pxPerSecond <= 0) return 1;
+  return Math.abs(speedPxS) / pxPerSecond;
 }
 
 function quantizePlaybackRate(signedRate: number) {
@@ -91,22 +117,23 @@ function quantizePlaybackRate(signedRate: number) {
 
 function quantizeFromSpeed(
   speedPxS: number,
-  loopWidth: number,
+  viewportWidth: number,
   duration: number,
 ) {
   if (Math.abs(speedPxS) < MIN_PLAY_SPEED_PX_S) return 0;
-  const rawRate = speedToPlaybackRate(speedPxS, loopWidth, duration);
+  const rawRate = speedToPlaybackRate(speedPxS, viewportWidth, duration);
   return quantizePlaybackRate(speedPxS > 0 ? rawRate : -rawRate);
 }
 
 function playbackRateToSpeed(
   signedRate: number,
-  loopWidth: number,
+  viewportWidth: number,
   duration: number,
 ) {
-  if (signedRate === 0 || loopWidth <= 0 || duration <= 0) return 0;
-  const pixelsPerSecondAt1x = loopWidth / duration;
-  return signedRate * pixelsPerSecondAt1x;
+  if (signedRate === 0) return 0;
+  const pxPerSecond = pixelsPerSecondAt1x(viewportWidth, duration);
+  if (pxPerSecond <= 0) return 0;
+  return signedRate * pxPerSecond;
 }
 
 function formatPlaybackRate(rate: number) {
@@ -115,11 +142,10 @@ function formatPlaybackRate(rate: number) {
 }
 
 function tapeDelayHeadLeft(
-  delay: number,
-  duration: number,
+  delaySeconds: number,
   direction: PlaybackDirection,
 ) {
-  const offsetPercent = (delay / duration) * 100;
+  const offsetPercent = (delaySeconds / REFERENCE_LOOP_SECONDS) * 100;
   const operator = direction === "reverse" ? "+" : "-";
   return `calc(50% ${operator} ${offsetPercent}%)`;
 }
@@ -294,6 +320,7 @@ export const Slider = forwardRef<
   const speedRef = useRef(BASE_SPEED_PX_S);
   const playbackRateRef = useRef(0);
   const loopWidthRef = useRef(0);
+  const viewportWidthRef = useRef(0);
   const draggingRef = useRef(false);
   const lastPointerStartRef = useRef({ x: 0, t: 0 });
   const lastPointerRef = useRef({ x: 0, t: 0 });
@@ -393,6 +420,7 @@ export const Slider = forwardRef<
         offsetRef.current,
         loopWidthRef.current,
         duration,
+        viewportWidthRef.current,
       );
     }
 
@@ -486,9 +514,15 @@ export const Slider = forwardRef<
   const syncOffsetFromPlayhead = useCallback((playhead: number) => {
     const loopWidth = loopWidthRef.current;
     const duration = durationRef.current;
-    if (loopWidth <= 0 || duration <= 0) return;
+    const viewportWidth = viewportWidthRef.current;
+    if (loopWidth <= 0 || duration <= 0 || viewportWidth <= 0) return;
 
-    offsetRef.current = timeToOffset(playhead, loopWidth, duration);
+    offsetRef.current = timeToOffset(
+      playhead,
+      loopWidth,
+      duration,
+      viewportWidth,
+    );
     if (trackRef.current) {
       trackRef.current.style.transform = `translateX(${-offsetRef.current}px)`;
     }
@@ -519,6 +553,7 @@ export const Slider = forwardRef<
       offsetRef.current,
       loopWidthRef.current,
       durationRef.current,
+      viewportWidthRef.current,
     );
     syncOffsetFromPlayhead(playhead);
   }, [stopPlayback, syncOffsetFromPlayhead]);
@@ -536,22 +571,33 @@ export const Slider = forwardRef<
     }
 
     const direction: PlaybackDirection = rate > 0 ? "forward" : "reverse";
-    const playhead = offsetToTime(offsetRef.current, loopWidth, duration);
+    const playhead = offsetToTime(
+      offsetRef.current,
+      loopWidth,
+      duration,
+      viewportWidthRef.current,
+    );
 
     await startPlayback(direction, Math.abs(rate), playhead);
   }, [startPlayback, stopPlayback]);
 
   const applyPlaybackRate = useCallback(
     async (rate: number) => {
-      const loopWidth = loopWidthRef.current;
       const duration = durationRef.current;
 
       playbackRateRef.current = rate;
       setDisplayRate(rate);
       if (rate !== 0) {
-        setPlaybackDirection(rate > 0 ? "forward" : "reverse");
+        const direction: PlaybackDirection = rate > 0 ? "forward" : "reverse";
+        setPlaybackDirection((prev) =>
+          prev === direction ? prev : direction,
+        );
       }
-      speedRef.current = playbackRateToSpeed(rate, loopWidth, duration);
+      speedRef.current = playbackRateToSpeed(
+        rate,
+        viewportWidthRef.current,
+        duration,
+      );
 
       await syncAudioPlayback();
     },
@@ -575,16 +621,18 @@ export const Slider = forwardRef<
     const viewport = viewportRef.current;
     if (!samples || !viewport) return;
 
-    const segmentWidth = viewport.clientWidth;
-    if (segmentWidth <= 0) return;
+    const viewportWidth = viewport.clientWidth;
+    if (viewportWidth <= 0) return;
 
-    loopWidthRef.current = segmentWidth;
-    setSegmentWidth(segmentWidth);
+    viewportWidthRef.current = viewportWidth;
+    const loopWidth = loopWidthForDuration(viewportWidth, durationRef.current);
+    loopWidthRef.current = loopWidth;
+    setSegmentWidth(loopWidth);
 
     for (const canvas of [canvasARef.current, canvasBRef.current]) {
       if (!canvas) continue;
-      canvas.style.width = `${segmentWidth}px`;
-      drawWaveform(canvas, samples, segmentWidth);
+      canvas.style.width = `${loopWidth}px`;
+      drawWaveform(canvas, samples, loopWidth);
     }
 
     if (durationRef.current > 0) {
@@ -700,6 +748,7 @@ export const Slider = forwardRef<
                 offsetRef.current,
                 loopWidth,
                 duration,
+                viewportWidthRef.current,
               );
               void startPlayback(direction, absRate, playhead);
             } else if (voicesRef.current.length > 0 && audioContextRef.current) {
@@ -739,7 +788,12 @@ export const Slider = forwardRef<
               loopWidth,
             );
             syncOffsetFromPlayhead(
-              offsetToTime(offsetRef.current, loopWidth, duration),
+              offsetToTime(
+                offsetRef.current,
+                loopWidth,
+                duration,
+                viewportWidthRef.current,
+              ),
             );
           }
         } else {
@@ -810,20 +864,29 @@ export const Slider = forwardRef<
     const pointerVelocityPxS = dt > 0 ? (dx / dt) * 1000 : 0;
     const speed = -pointerVelocityPxS;
 
-    const loopWidth = loopWidthRef.current;
     const duration = durationRef.current;
     const clampedSpeed = Math.min(
       MAX_SPEED_PX_S,
       Math.max(MIN_SPEED_PX_S, speed),
     );
 
-    const quantized = quantizeFromSpeed(clampedSpeed, loopWidth, duration);
+    const quantized = quantizeFromSpeed(
+      clampedSpeed,
+      viewportWidthRef.current,
+      duration,
+    );
     playbackRateRef.current = quantized;
     setDisplayRate(quantized);
     if (quantized !== 0) {
-      setPlaybackDirection(quantized > 0 ? "forward" : "reverse");
+      const direction: PlaybackDirection =
+        quantized > 0 ? "forward" : "reverse";
+      setPlaybackDirection((prev) => (prev === direction ? prev : direction));
     }
-    speedRef.current = playbackRateToSpeed(quantized, loopWidth, duration);
+    speedRef.current = playbackRateToSpeed(
+      quantized,
+      viewportWidthRef.current,
+      duration,
+    );
 
     void syncAudioPlayback();
   };
@@ -846,7 +909,7 @@ export const Slider = forwardRef<
           format={formatPlaybackRate}
         />
         <MixControl
-          label="Wet"
+          label="DELAY"
           value={wet}
           min={0}
           max={1}
@@ -866,11 +929,7 @@ export const Slider = forwardRef<
               key={delay}
               className="slider-play-head slider-play-head--delay"
               style={{
-                left: tapeDelayHeadLeft(
-                  delay,
-                  trackDuration,
-                  playbackDirection,
-                ),
+                left: tapeDelayHeadLeft(delay, playbackDirection),
               }}
               aria-hidden
             />

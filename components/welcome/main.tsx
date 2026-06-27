@@ -36,14 +36,17 @@ export function Main() {
           <Slider ref={sliderRef3} audioRef={audioRef3} />
           <Slider ref={sliderRef4} audioRef={audioRef4} />
         </div>
-        <footer className="welcome-footer">
+        <div className="transport-strip">
           <button
             type="button"
-            className="welcome-reset-loops"
+            className="control-button"
             onClick={resetAllLoops}
           >
             Resync
           </button>
+        </div>
+        <footer className="main-footer">
+          future footer
         </footer>
       </div>
     </main>
