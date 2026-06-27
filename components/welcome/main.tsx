@@ -24,7 +24,7 @@ export function Main() {
     <main className="welcome-main">
       <div className="welcome-content">
         <header className="welcome-header">
-          <div className="welcome-logo">Ambient Slide</div>
+          <div className="welcome-logo">Music for Seaports</div>
         </header>
         <div className="welcome-section">
           <audio ref={audioRef1} src="/seaport/BASS 4.mp3" preload="metadata" loop />
@@ -46,7 +46,7 @@ export function Main() {
           </button>
         </div>
         <footer className="main-footer">
-          future footer
+          future footer goes here
         </footer>
       </div>
     </main>
