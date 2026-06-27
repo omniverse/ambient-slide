@@ -1029,12 +1029,12 @@ export const Slider = forwardRef<SliderHandle, SliderProps>(function Slider(
             {segmentWidth > 0 && trackDuration > 0 && (
               <>
                 <div
-                  className="slider-loop-marker"
+                  className="slider-splice-marker"
                   style={{ left: loopMarkerLeftPx }}
                   aria-hidden
                 />
                 <div
-                  className="slider-loop-marker"
+                  className="slider-splice-marker"
                   style={{ left: loopMarkerLeftPx + segmentWidth }}
                   aria-hidden
                 />
