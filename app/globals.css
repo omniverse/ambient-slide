@@ -110,8 +110,8 @@ body {
   font-family: inherit;
   font-size: 0.825rem;
   text-transform: uppercase;
-  color: var(--color-primary-100);
-  background-color: var(--color-primary-600);
+  color: var(--color-primary-900);
+  background-color: var(--color-primary-100);
   border: 2px solid var(--color-primary-900);
   border-radius: 4px;
   padding: .25rem .25rem;
@@ -120,7 +120,7 @@ body {
 }
 
 .control-button:hover {
-  background-color: var(--color-primary-200);
+  background-color: var(--color-primary-400);
   color: var(--color-primary-900);
 
 }
