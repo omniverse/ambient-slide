@@ -286,21 +286,37 @@ export type SliderHandle = {
   resetToLoopStart: () => void;
 };
 
-export const Slider = forwardRef<
-  SliderHandle,
-  { audioRef: React.RefObject<HTMLAudioElement | null> }
->(function Slider({ audioRef }, ref) {
+export type SliderProps = {
+  audioRef: React.RefObject<HTMLAudioElement | null>;
+  defaultSpeed?: number;
+  defaultDelay?: number;
+  defaultVolume?: number;
+  defaultPan?: number;
+};
+
+export const Slider = forwardRef<SliderHandle, SliderProps>(function Slider(
+  {
+    audioRef,
+    defaultSpeed = 0,
+    defaultDelay = 1,
+    defaultVolume = 1,
+    defaultPan = 0,
+  },
+  ref,
+) {
+  const initialDirection: PlaybackDirection =
+    defaultSpeed < 0 ? "reverse" : "forward";
   const [peaks, setPeaks] = useState<Float32Array | null>(null);
   const [trackDuration, setTrackDuration] = useState(0);
   const [segmentWidth, setSegmentWidth] = useState(0);
   const [loopStartTime, setLoopStartTime] = useState(0);
-  const [displayRate, setDisplayRate] = useState(0);
+  const [displayRate, setDisplayRate] = useState(defaultSpeed);
   const [headEngaged, setHeadEngaged] = useState(false);
   const [playbackDirection, setPlaybackDirection] =
-    useState<PlaybackDirection>("forward");
-  const [volume, setVolume] = useState(1);
-  const [pan, setPan] = useState(0);
-  const [wet, setWet] = useState(1);
+    useState<PlaybackDirection>(initialDirection);
+  const [volume, setVolume] = useState(defaultVolume);
+  const [pan, setPan] = useState(defaultPan);
+  const [wet, setWet] = useState(defaultDelay);
   const viewportRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const canvasARef = useRef<HTMLCanvasElement>(null);
@@ -313,16 +329,17 @@ export const Slider = forwardRef<
   const audioContextRef = useRef<AudioContext | null>(null);
   const gainNodeRef = useRef<GainNode | null>(null);
   const pannerRef = useRef<StereoPannerNode | null>(null);
-  const volumeRef = useRef(1);
-  const panRef = useRef(0);
-  const wetRef = useRef(1);
+  const volumeRef = useRef(defaultVolume);
+  const panRef = useRef(defaultPan);
+  const wetRef = useRef(defaultDelay);
   const voicesRef = useRef<PlaybackVoice[]>([]);
   const offsetRef = useRef(0);
   const speedRef = useRef(BASE_SPEED_PX_S);
-  const playbackRateRef = useRef(0);
-  const headEngagedRef = useRef(true);
+  const playbackRateRef = useRef(defaultSpeed);
+  const headEngagedRef = useRef(false);
   const loopWidthRef = useRef(0);
   const viewportWidthRef = useRef(0);
+  const defaultsAppliedRef = useRef(false);
   const draggingRef = useRef(false);
   const lastPointerStartRef = useRef({ x: 0, t: 0 });
   const lastPointerRef = useRef({ x: 0, t: 0 });
@@ -645,6 +662,15 @@ export const Slider = forwardRef<
       drawWaveform(canvas, samples, loopWidth);
     }
 
+    const rate = playbackRateRef.current;
+    if (rate !== 0 && durationRef.current > 0) {
+      speedRef.current = playbackRateToSpeed(
+        rate,
+        viewportWidth,
+        durationRef.current,
+      );
+    }
+
     if (durationRef.current > 0) {
       syncOffsetToLoopStart();
     }
@@ -709,6 +735,24 @@ export const Slider = forwardRef<
   useEffect(() => {
     drawWaveforms();
   }, [peaks, drawWaveforms]);
+
+  useEffect(() => {
+    if (defaultsAppliedRef.current || trackDuration <= 0 || segmentWidth <= 0) {
+      return;
+    }
+    defaultsAppliedRef.current = true;
+    if (defaultSpeed === 0) return;
+
+    playbackRateRef.current = defaultSpeed;
+    setDisplayRate(defaultSpeed);
+    setPlaybackDirection(defaultSpeed > 0 ? "forward" : "reverse");
+    speedRef.current = playbackRateToSpeed(
+      defaultSpeed,
+      viewportWidthRef.current,
+      durationRef.current,
+    );
+    void syncAudioPlayback();
+  }, [trackDuration, segmentWidth, defaultSpeed, syncAudioPlayback]);
 
   useEffect(() => {
     const viewport = viewportRef.current;

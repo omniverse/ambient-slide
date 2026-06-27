@@ -32,10 +32,10 @@ export function Main() {
           <audio ref={audioRef2} src="/seaport/MELO 5.mp3" preload="metadata" loop />
           <audio ref={audioRef3} src="/seaport/TENOR 5.mp3" preload="metadata" loop />
           <audio ref={audioRef4} src="/seaport/TWIN 6.mp3" preload="metadata" loop />
-          <Slider ref={sliderRef1} audioRef={audioRef1} />
-          <Slider ref={sliderRef2} audioRef={audioRef2} />
-          <Slider ref={sliderRef3} audioRef={audioRef3} />
-          <Slider ref={sliderRef4} audioRef={audioRef4} />
+          <Slider ref={sliderRef1} audioRef={audioRef1} defaultSpeed={.5} defaultDelay={0} defaultVolume={.5} />
+          <Slider ref={sliderRef2} audioRef={audioRef2} defaultSpeed={1} defaultDelay={1} defaultVolume={.2} defaultPan={.8} />
+          <Slider ref={sliderRef3} audioRef={audioRef3} defaultSpeed={-1} defaultDelay={.5} defaultVolume={.5} defaultPan={-.8} />
+          <Slider ref={sliderRef4} audioRef={audioRef4} defaultSpeed={.25} defaultDelay={.5} defaultVolume={.3} />
         </div>
         <div className="transport-strip">
           <button
