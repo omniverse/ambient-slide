@@ -25,7 +25,7 @@ export function Main() {
       <div className="welcome-content">
         <header className="welcome-header">
           <h1>Music for Seaports</h1>
-           <caption>begin by clicking the playhead on any track</caption>
+           <p>begin by clicking the playhead on any track</p>
         </header>
         <div className="welcome-section">
           <audio ref={audioRef1} src="/seaport/BASS 4.mp3" preload="metadata" loop />
