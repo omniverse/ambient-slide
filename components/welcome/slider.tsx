@@ -193,7 +193,7 @@ function voiceGainForDelay(delaySeconds: number, wet: number) {
     delaySeconds as (typeof TAPE_DELAY_SECONDS)[number],
   );
   const tap = index >= 0 ? index + 1 : 1;
-  return (0.5 / tap) * wet;
+  return (1 / tap) * wet;
 }
 
 function peaksFromBuffer(buffer: AudioBuffer) {
@@ -295,6 +295,7 @@ export const Slider = forwardRef<
   const [segmentWidth, setSegmentWidth] = useState(0);
   const [loopStartTime, setLoopStartTime] = useState(0);
   const [displayRate, setDisplayRate] = useState(0);
+  const [headEngaged, setHeadEngaged] = useState(true);
   const [playbackDirection, setPlaybackDirection] =
     useState<PlaybackDirection>("forward");
   const [volume, setVolume] = useState(1);
@@ -319,6 +320,7 @@ export const Slider = forwardRef<
   const offsetRef = useRef(0);
   const speedRef = useRef(BASE_SPEED_PX_S);
   const playbackRateRef = useRef(0);
+  const headEngagedRef = useRef(true);
   const loopWidthRef = useRef(0);
   const viewportWidthRef = useRef(0);
   const draggingRef = useRef(false);
@@ -535,7 +537,7 @@ export const Slider = forwardRef<
   const resetToLoopStart = useCallback(async () => {
     syncOffsetToLoopStart();
     const rate = playbackRateRef.current;
-    if (rate === 0) return;
+    if (rate === 0 || !headEngagedRef.current) return;
 
     const direction: PlaybackDirection = rate > 0 ? "forward" : "reverse";
     await startPlayback(direction, Math.abs(rate), loopStartRef.current);
@@ -565,7 +567,7 @@ export const Slider = forwardRef<
 
     if (loopWidth <= 0 || duration <= 0) return;
 
-    if (rate === 0) {
+    if (rate === 0 || !headEngagedRef.current) {
       stopPlayback();
       return;
     }
@@ -615,6 +617,14 @@ export const Slider = forwardRef<
     },
     [applyPlaybackRate, ensureAudioContext],
   );
+
+  const toggleHeadEngagement = useCallback(() => {
+    void ensureAudioContext();
+    const next = !headEngagedRef.current;
+    headEngagedRef.current = next;
+    setHeadEngaged(next);
+    void syncAudioPlayback();
+  }, [ensureAudioContext, syncAudioPlayback]);
 
   const drawWaveforms = useCallback(() => {
     const samples = peaksRef.current;
@@ -737,50 +747,62 @@ export const Slider = forwardRef<
             const direction: PlaybackDirection =
               rate > 0 ? "forward" : "reverse";
             const absRate = Math.abs(rate);
-            const meta = getMasterMeta();
 
-            if (
-              !meta ||
-              meta.direction !== direction ||
-              Math.abs(meta.rate - absRate) > 0.05
-            ) {
-              const playhead = offsetToTime(
-                offsetRef.current,
-                loopWidth,
-                duration,
-                viewportWidthRef.current,
-              );
-              void startPlayback(direction, absRate, playhead);
-            } else if (voicesRef.current.length > 0 && audioContextRef.current) {
-              const leaderPlayhead = playheadFromSource();
-              const startedAt = audioContextRef.current.currentTime;
+            if (headEngagedRef.current) {
+              const meta = getMasterMeta();
 
-              for (const voice of voicesRef.current) {
-                const tapPlayhead = followerPlayhead(
-                  leaderPlayhead,
-                  voice.meta.delaySeconds,
-                  direction,
-                  loopStartRef.current,
+              if (
+                !meta ||
+                meta.direction !== direction ||
+                Math.abs(meta.rate - absRate) > 0.05
+              ) {
+                const playhead = offsetToTime(
+                  offsetRef.current,
+                  loopWidth,
                   duration,
+                  viewportWidthRef.current,
                 );
-                const bufferOffset = playheadToBufferOffset(
-                  tapPlayhead,
-                  direction,
-                  duration,
-                );
+                void startPlayback(direction, absRate, playhead);
+              } else if (
+                voicesRef.current.length > 0 &&
+                audioContextRef.current
+              ) {
+                const leaderPlayhead = playheadFromSource();
+                const startedAt = audioContextRef.current.currentTime;
 
-                voice.source.playbackRate.value = absRate;
-                voice.meta = {
-                  direction,
-                  rate: absRate,
-                  startedAt,
-                  bufferOffset,
-                  delaySeconds: voice.meta.delaySeconds,
-                };
+                for (const voice of voicesRef.current) {
+                  const tapPlayhead = followerPlayhead(
+                    leaderPlayhead,
+                    voice.meta.delaySeconds,
+                    direction,
+                    loopStartRef.current,
+                    duration,
+                  );
+                  const bufferOffset = playheadToBufferOffset(
+                    tapPlayhead,
+                    direction,
+                    duration,
+                  );
+
+                  voice.source.playbackRate.value = absRate;
+                  voice.meta = {
+                    direction,
+                    rate: absRate,
+                    startedAt,
+                    bufferOffset,
+                    delaySeconds: voice.meta.delaySeconds,
+                  };
+                }
               }
-            }
 
-            syncOffsetFromPlayhead(playheadFromSource());
+              syncOffsetFromPlayhead(playheadFromSource());
+            } else {
+              stopPlayback();
+              offsetRef.current = wrapOffset(
+                offsetRef.current + speed * dt,
+                loopWidth,
+              );
+            }
           } else {
             stopPlayback();
             offsetRef.current = wrapOffset(
@@ -914,16 +936,31 @@ export const Slider = forwardRef<
           min={0}
           max={1}
           step={0.01}
+          disabled={!headEngaged}
           onChange={handleWetChange}
           format={(v) => `${Math.round(v * 100)}`}
         />
       </div>
-      <div className="slider-root">
-        <div
-          className="slider-play-head slider-play-head--leader"
-          aria-hidden
+      <div
+        className="slider-root"
+        style={
+          {
+            "--delay-wet": headEngaged ? wet : 0,
+          } as React.CSSProperties
+        }
+      >
+        <button
+          type="button"
+          className={`slider-play-head slider-play-head--leader${
+            headEngaged ? " slider-play-head--engaged" : ""
+          }`}
+          aria-label={headEngaged ? "Disengage play head" : "Engage play head"}
+          aria-pressed={headEngaged}
+          disabled={trackDuration <= 0}
+          onClick={toggleHeadEngagement}
         />
-        {trackDuration > 0 &&
+        {headEngaged &&
+          trackDuration > 0 &&
           TAPE_DELAY_SECONDS.map((delay) => (
             <div
               key={delay}
