@@ -295,7 +295,7 @@ export const Slider = forwardRef<
   const [segmentWidth, setSegmentWidth] = useState(0);
   const [loopStartTime, setLoopStartTime] = useState(0);
   const [displayRate, setDisplayRate] = useState(0);
-  const [headEngaged, setHeadEngaged] = useState(true);
+  const [headEngaged, setHeadEngaged] = useState(false);
   const [playbackDirection, setPlaybackDirection] =
     useState<PlaybackDirection>("forward");
   const [volume, setVolume] = useState(1);
